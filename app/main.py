@@ -104,7 +104,7 @@ def _project_to_response(project: Project, *, message: str | None = None) -> DDa
         name=project.name,
         movie_title=project.movie_title,
         release_date=project.release_date,
-        dday=project.dday_label,
+        dday=_compute_dday(project.release_date),
         shared=True,
         message=message,
         poster_url=project.poster_url,
@@ -120,3 +120,13 @@ def _split_list_field(raw: str | None) -> list[str] | None:
         return None
     values = [chunk.strip() for chunk in raw.split(",") if chunk.strip()]
     return values or None
+
+
+def _compute_dday(release_date: date) -> str:
+    today = date.today()
+    delta = (release_date - today).days
+    if delta > 0:
+        return f"D-{delta}"
+    if delta == 0:
+        return "D-DAY"
+    return f"D+{abs(delta)}"
