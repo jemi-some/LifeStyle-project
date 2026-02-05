@@ -45,12 +45,14 @@ class TMDbClient:
         base_url: str | None = None,
         default_language: str | None = None,
         default_region: str | None = None,
+        image_base: str | None = None,
     ) -> None:
         settings = get_settings()
         self.api_key = api_key or settings.tmdb_api_key
         self.base_url = base_url or settings.tmdb_base_url.rstrip("/")
         self.default_language = default_language or settings.tmdb_language
         self.default_region = default_region or settings.tmdb_region
+        self.image_base = image_base or settings.tmdb_image_base.rstrip("/")
         self.timeout = 10.0
 
     def _request(self, method: str, path: str, *, params: dict[str, Any] | None = None) -> Any:
@@ -118,6 +120,7 @@ class TMDbClient:
             director=self._extract_director(details.get("credits", {})),
             cast=self._extract_cast(details.get("credits", {})),
             genre=[g["name"] for g in details.get("genres", [])],
+            poster_url=self._build_poster_url(details.get("poster_path") or candidate.get("poster_path")),
             source="tmdb",
             external_id=str(details.get("id")),
             is_re_release=release.is_re_release,
@@ -204,3 +207,8 @@ class TMDbClient:
         cast = credits.get("cast") or []
         names = [person.get("name") for person in cast if person.get("name")]
         return names[:limit] if names else None
+
+    def _build_poster_url(self, path: str | None) -> str | None:
+        if not path:
+            return None
+        return f"{self.image_base}{path}"

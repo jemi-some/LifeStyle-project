@@ -35,6 +35,7 @@ class Project(Base):
     director: Mapped[str | None] = mapped_column(String(255), nullable=True)
     cast: Mapped[str | None] = mapped_column(Text, nullable=True)
     genre: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    poster_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     dday_label: Mapped[str] = mapped_column(String(32))
     source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     external_id: Mapped[str | None] = mapped_column(String(128))

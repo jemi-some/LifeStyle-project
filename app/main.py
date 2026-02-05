@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.langchain_config import configure_langchain_env
-from app.db import ProjectRepository, get_session, init_models
+from app.db import Project, ProjectRepository, get_session, init_models
 from app.services.dday import build_project_params, orchestrate_movie_lookup
 from app.services.tmdb import TMDbNoUpcomingRelease, TMDbNotFound, TMDbError
 
@@ -39,6 +39,11 @@ class DDayResponse(BaseModel):
     dday: str
     shared: bool = True
     message: str | None = None
+    poster_url: str | None = None
+    distributor: str | None = None
+    director: str | None = None
+    cast: list[str] | None = None
+    genre: list[str] | None = None
 
 
 @app.post("/dday", response_model=DDayResponse)
@@ -57,12 +62,8 @@ def upsert_dday(
 
     existing = repo.get_by_name(session, normalized_name)
     if existing:
-        return DDayResponse(
-            name=existing.name,
-            movie_title=existing.movie_title,
-            release_date=existing.release_date,
-            dday=existing.dday_label,
-            shared=True,
+        return _project_to_response(
+            existing,
             message="이미 등록된 개봉일입니다. 모두 함께 기다리고 있어요.",
         )
 
@@ -86,12 +87,8 @@ def upsert_dday(
 
     params = build_project_params(project_name=normalized_name, movie=movie)
     record = repo.create(session, **params)
-    return DDayResponse(
-        name=record.name,
-        movie_title=record.movie_title,
-        release_date=record.release_date,
-        dday=record.dday_label,
-        shared=True,
+    return _project_to_response(
+        record,
         message="새로운 D-Day를 기록했습니다.",
     )
 
@@ -99,14 +96,27 @@ def upsert_dday(
 @app.get("/dday", response_model=list[DDayResponse])
 def list_shared_ddays(session: Session = Depends(get_session)) -> list[DDayResponse]:
     records = repo.list_all(session)
-    return [
-        DDayResponse(
-            name=record.name,
-            movie_title=record.movie_title,
-            release_date=record.release_date,
-            dday=record.dday_label,
-            shared=True,
-            message=None,
-        )
-        for record in records
-    ]
+    return [_project_to_response(record) for record in records]
+
+
+def _project_to_response(project: Project, *, message: str | None = None) -> DDayResponse:
+    return DDayResponse(
+        name=project.name,
+        movie_title=project.movie_title,
+        release_date=project.release_date,
+        dday=project.dday_label,
+        shared=True,
+        message=message,
+        poster_url=project.poster_url,
+        distributor=project.distributor,
+        director=project.director,
+        cast=_split_list_field(project.cast),
+        genre=_split_list_field(project.genre),
+    )
+
+
+def _split_list_field(raw: str | None) -> list[str] | None:
+    if not raw:
+        return None
+    values = [chunk.strip() for chunk in raw.split(",") if chunk.strip()]
+    return values or None

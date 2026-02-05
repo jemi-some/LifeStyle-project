@@ -17,6 +17,7 @@ class MovieData:
     director: str | None = None
     cast: list[str] | None = None
     genre: list[str] | None = None
+    poster_url: str | None = None
     source: str | None = None
     external_id: str | None = None
     is_re_release: bool = False

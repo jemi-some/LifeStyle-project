@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     tmdb_base_url: str = Field(default="https://api.themoviedb.org/3")
     tmdb_language: str = Field(default="ko-KR")
     tmdb_region: str | None = Field(default="KR")
+    tmdb_image_base: str = Field(default="https://image.tmdb.org/t/p/w500")
     langchain_tracing_v2: bool = Field(default=False, alias="LANGCHAIN_TRACING_V2")
     langchain_api_key: str | None = Field(default=None, alias="LANGCHAIN_API_KEY")
     langchain_project: str | None = Field(default=None, alias="LANGCHAIN_PROJECT")
