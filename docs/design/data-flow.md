@@ -11,6 +11,7 @@
 | director      | TEXT        | 감독 이름. 복수 감독 시 콤마 구분. |
 | cast          | TEXT        | 주요 출연진 목록(콤마 구분). |
 | genre         | TEXT        | 주 장르. 복합 장르 시 슬래시/콤마 구분. |
+| poster_url    | TEXT        | TMDb 포스터 이미지 경로/CDN URL. |
 | dday_label    | TEXT        | `D-10`, `D-DAY` 등 문자열 캐시. |
 | source        | TEXT        | 영화 API 출처(TMDB 등). |
 | external_id   | TEXT        | 영화 API 고유 ID. Unique with source. |
@@ -59,8 +60,8 @@ SQLAlchemy model definitions live in `app/models.py` with metadata for migration
      3. Validate tool response (future release priority). If release past & no re-release → respond with "생성 불가" status, no DB insert.
      4. If valid future date:
         - Calculate `dday_label` from release date.
-        - `ProjectRepository.create(...)` to persist.
-        - Return success response (movie info + dday).
+        - `ProjectRepository.create(...)` to persist (포스터 URL, 감독/출연/장르 메타 포함).
+        - Return success response with rich metadata.
 
 3. **Response Payloads**
 ```json
@@ -70,14 +71,20 @@ SQLAlchemy model definitions live in `app/models.py` with metadata for migration
   "movie_title": "프로젝트 헤일메리",
   "release_date": "2026-03-20",
   "dday": "D-30",
-  "shared": true
+  "shared": true,
+  "poster_url": "https://image.tmdb.org/t/p/w500/...",
+  "director": "리들리 스콧",
+  "genre": ["SF", "드라마"],
+  "cast": ["배우1", "배우2"]
 }
 
 // already exists
 {
   "name": "프로젝트 헤일메리",
   "message": "이미 등록된 개봉일입니다. 지금은 D-30을 함께 기다리고 있어요.",
-  "dday": "D-30"
+  "dday": "D-30",
+  "poster_url": "...",
+  "genre": ["SF"]
 }
 
 // cannot create
