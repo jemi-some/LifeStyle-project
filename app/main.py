@@ -94,3 +94,19 @@ def upsert_dday(
         shared=True,
         message="새로운 D-Day를 기록했습니다.",
     )
+
+
+@app.get("/dday", response_model=list[DDayResponse])
+def list_shared_ddays(session: Session = Depends(get_session)) -> list[DDayResponse]:
+    records = repo.list_all(session)
+    return [
+        DDayResponse(
+            name=record.name,
+            movie_title=record.movie_title,
+            release_date=record.release_date,
+            dday=record.dday_label,
+            shared=True,
+            message=None,
+        )
+        for record in records
+    ]

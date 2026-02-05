@@ -88,3 +88,7 @@ class ProjectRepository:
             .order_by(Project.release_date)
         )
         return list(session.execute(query).scalars())
+
+    def list_all(self, session: Session) -> list[Project]:
+        query = select(Project).order_by(Project.release_date)
+        return list(session.execute(query).scalars())
