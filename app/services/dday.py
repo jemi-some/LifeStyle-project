@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import logging
-from datetime import date
-from typing import Any
+from datetime import date, datetime
+from typing import Any, Iterable
 
-from openai import OpenAI
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.tools import StructuredTool
+from langchain_openai import ChatOpenAI
 
 from app.core.config import get_settings
 from app.services.models import MovieData
@@ -47,110 +48,118 @@ def build_project_params(
 
 
 def orchestrate_movie_lookup(user_query: str) -> MovieData:
-    """Use OpenAI + TMDb tool-calling flow to fetch movie metadata."""
+    """Use LangChain (ChatOpenAI + StructuredTool) to fetch movie metadata."""
 
     settings = get_settings()
     tmdb_client = TMDbClient()
-    client = _get_openai_client(settings.openai_api_key)
 
-    if client is None:
+    if not settings.openai_api_key:
         return tmdb_client.search_movie(title=user_query)
+
+    llm = ChatOpenAI(
+        temperature=0.0,
+        model=settings.openai_model,
+        api_key=settings.openai_api_key,
+    )
+    llm_with_tools = llm.bind_tools([_MOVIE_SEARCH_TOOL])
 
     try:
-        response = client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": _SYSTEM_PROMPT,
-                },
-                {"role": "user", "content": user_query},
-            ],
-            tools=_TOOLS,
-            tool_choice="auto",
+        ai_message = llm_with_tools.invoke(
+            [
+                SystemMessage(content=_SYSTEM_PROMPT),
+                HumanMessage(content=user_query),
+            ]
         )
     except Exception as exc:  # pragma: no cover - network failure
-        logger.warning("OpenAI call failed, falling back to direct TMDb lookup: %s", exc)
+        logger.warning("LangChain/OpenAI call failed, fallback to TMDb direct: %s", exc)
         return tmdb_client.search_movie(title=user_query)
 
-    tool_call = _extract_movie_tool_call(response)
-    args = _parse_tool_arguments(tool_call) if tool_call else {}
-    return tmdb_client.search_movie(
-        title=args.get("title") or user_query,
-        year=args.get("year"),
-        language=args.get("language"),
-        region=args.get("country") or settings.tmdb_region,
-    )
+    payload = _run_movie_search_tool(ai_message.tool_calls)
+    if payload:
+        return _payload_to_movie(payload)
+
+    logger.info("LLM response missing movie_search tool call, using direct TMDb lookup")
+    return tmdb_client.search_movie(title=user_query)
 
 
 logger = logging.getLogger(__name__)
-_openai_client: OpenAI | None = None
 _SYSTEM_PROMPT = (
     "You help users coordinate shared movie release D-Days. "
     "Always normalize the movie title (fix missing spaces like '28년후' -> '28년 후',"
     " correct casing, prefer official Korean titles) before calling the movie_search"
     " tool, and always call that tool before answering."
 )
-_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "movie_search",
-            "description": "Search TMDb for a movie release date and metadata.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "title": {
-                        "type": "string",
-                        "description": "Movie title to search for",
-                    },
-                    "year": {
-                        "type": "integer",
-                        "description": "Optional release year for disambiguation",
-                    },
-                    "country": {
-                        "type": "string",
-                        "description": "ISO country code (KR, US, etc.)",
-                    },
-                    "language": {
-                        "type": "string",
-                        "description": "Language/locale hint (ko-KR, en-US)",
-                    },
-                },
-                "required": ["title"],
-            },
-        },
-    }
-]
 
 
-def _get_openai_client(api_key: str | None) -> OpenAI | None:
-    global _openai_client
-    if not api_key:
-        return None
-    if _openai_client is None:
-        _openai_client = OpenAI(api_key=api_key)
-    return _openai_client
+def _movie_search_tool_func(
+    title: str,
+    year: int | None = None,
+    country: str | None = None,
+    language: str | None = None,
+) -> dict[str, Any]:
+    settings = get_settings()
+    tmdb_client = TMDbClient()
+    movie = tmdb_client.search_movie(
+        title=title,
+        year=year,
+        region=country or settings.tmdb_region,
+        language=language or settings.tmdb_language,
+    )
+    return _movie_to_payload(movie)
 
 
-def _extract_movie_tool_call(response: Any) -> Any:
-    try:
-        choice = response.choices[0]
-        message = choice.message
-        tool_calls = getattr(message, "tool_calls", None) or []
-    except (AttributeError, IndexError):
+_MOVIE_SEARCH_TOOL = StructuredTool.from_function(
+    func=_movie_search_tool_func,
+    name="movie_search",
+    description="Search TMDb for a movie release date and metadata.",
+)
+
+
+def _run_movie_search_tool(tool_calls: Iterable[Any]) -> dict[str, Any] | None:
+    if not tool_calls:
         return None
     for call in tool_calls:
-        if call.function.name == "movie_search":
-            return call
+        name = getattr(call, "name", None) or call.get("name")
+        if name != "movie_search":
+            continue
+        args = getattr(call, "args", None) or call.get("args") or {}
+        logger.debug("movie_search tool args via LangChain: %s", args)
+        return _MOVIE_SEARCH_TOOL.invoke(args)
     return None
 
 
-def _parse_tool_arguments(tool_call: Any) -> dict[str, Any]:
-    if not tool_call:
-        return {}
-    try:
-        return json.loads(tool_call.function.arguments or "{}")
-    except json.JSONDecodeError:
-        logger.warning("Failed to parse tool arguments: %s", tool_call.function.arguments)
-        return {}
+def _movie_to_payload(movie: MovieData) -> dict[str, Any]:
+    return {
+        "title": movie.title,
+        "release_date": movie.release_date.isoformat(),
+        "overview": movie.overview,
+        "distributor": movie.distributor,
+        "director": movie.director,
+        "cast": movie.cast or [],
+        "genre": movie.genre or [],
+        "source": movie.source,
+        "external_id": movie.external_id,
+        "is_re_release": movie.is_re_release,
+    }
+
+
+def _payload_to_movie(payload: dict[str, Any]) -> MovieData:
+    raw_release = payload.get("release_date")
+    if isinstance(raw_release, date):
+        release_date = raw_release
+    else:
+        release_date = datetime.fromisoformat(str(raw_release)).date()
+    cast = payload.get("cast") or None
+    genre = payload.get("genre") or None
+    return MovieData(
+        title=payload.get("title", ""),
+        release_date=release_date,
+        overview=payload.get("overview"),
+        distributor=payload.get("distributor"),
+        director=payload.get("director"),
+        cast=cast,
+        genre=genre,
+        source=payload.get("source"),
+        external_id=payload.get("external_id"),
+        is_re_release=bool(payload.get("is_re_release", False)),
+    )

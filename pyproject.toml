@@ -13,6 +13,8 @@ dependencies = [
   "alembic",
   "httpx",
   "openai",
+  "langchain",
+  "langchain-openai",
   "pyyaml",
 ]
 

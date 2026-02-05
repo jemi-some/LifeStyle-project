@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -15,10 +15,11 @@ class Settings(BaseSettings):
     tmdb_base_url: str = Field(default="https://api.themoviedb.org/3")
     tmdb_language: str = Field(default="ko-KR")
     tmdb_region: str | None = Field(default="KR")
+    langchain_tracing_v2: bool = Field(default=False, alias="LANGCHAIN_TRACING_V2")
+    langchain_api_key: str | None = Field(default=None, alias="LANGCHAIN_API_KEY")
+    langchain_project: str | None = Field(default=None, alias="LANGCHAIN_PROJECT")
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
 @lru_cache(maxsize=1)

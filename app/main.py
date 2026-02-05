@@ -4,15 +4,27 @@ from __future__ import annotations
 
 from datetime import date
 
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.core.langchain_config import configure_langchain_env
 from app.db import ProjectRepository, get_session, init_models
 from app.services.dday import build_project_params, orchestrate_movie_lookup
 from app.services.tmdb import TMDbNoUpcomingRelease, TMDbNotFound, TMDbError
 
-app = FastAPI(title="D-Day Service")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Configure LangChain + ensure database tables before serving."""
+
+    configure_langchain_env()
+    init_models()
+    yield
+
+
+app = FastAPI(title="D-Day Service", lifespan=lifespan)
 repo = ProjectRepository()
 
 
@@ -27,13 +39,6 @@ class DDayResponse(BaseModel):
     dday: str
     shared: bool = True
     message: str | None = None
-
-
-@app.on_event("startup")
-def _startup() -> None:
-    """Ensure tables exist for local/testing environments."""
-
-    init_models()
 
 
 @app.post("/dday", response_model=DDayResponse)
