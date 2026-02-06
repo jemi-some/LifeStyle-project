@@ -47,6 +47,32 @@ class ProjectRepository:
         query = select(Project).where(Project.name == name)
         return session.execute(query).scalar_one_or_none()
 
+    def get_by_source_and_external_id(
+        self,
+        session: Session,
+        *,
+        source: str | None,
+        external_id: str | None,
+    ) -> Project | None:
+        if not source or not external_id:
+            return None
+        query = select(Project).where(
+            Project.source == source,
+            Project.external_id == external_id,
+        )
+        return session.execute(query).scalar_one_or_none()
+
+    def get_by_source_and_external_id(
+        self, session: Session, *, source: str | None, external_id: str | None
+    ) -> Project | None:
+        if not source or not external_id:
+            return None
+        query = select(Project).where(
+            Project.source == source,
+            Project.external_id == external_id,
+        )
+        return session.execute(query).scalar_one_or_none()
+
     def create(
         self,
         session: Session,

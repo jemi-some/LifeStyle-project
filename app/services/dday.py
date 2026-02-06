@@ -16,7 +16,7 @@ from app.services.tmdb import TMDbClient
 
 
 def calculate_dday_label(release_date: date, *, today: date | None = None) -> str:
-    """Return the canonical D-Day label (D-10/D-DAY/D+5)."""
+    """주어진 개봉일과 오늘 날짜를 비교해 표준 D-Day 라벨을 만든다."""
 
     today = today or date.today()
     delta = (release_date - today).days
@@ -30,7 +30,7 @@ def calculate_dday_label(release_date: date, *, today: date | None = None) -> st
 def build_project_params(
     *, project_name: str, movie: MovieData, today: date | None = None
 ) -> dict:
-    """Create kwargs for ProjectRepository.create from movie data."""
+    """영화 메타데이터를 SQLAlchemy 모델 생성에 필요한 dict로 변환."""
 
     return {
         "name": project_name,
@@ -98,6 +98,7 @@ def _movie_search_tool_func(
     country: str | None = None,
     language: str | None = None,
 ) -> dict[str, Any]:
+    """TMDb API를 호출해 LangChain 툴 응답 포맷을 반환."""
     settings = get_settings()
     tmdb_client = TMDbClient()
     movie = tmdb_client.search_movie(
@@ -117,6 +118,7 @@ _MOVIE_SEARCH_TOOL = StructuredTool.from_function(
 
 
 def _run_movie_search_tool(tool_calls: Iterable[Any]) -> dict[str, Any] | None:
+    """LLM 응답의 tool_calls 중 movie_search 호출을 찾아 실행."""
     if not tool_calls:
         return None
     for call in tool_calls:
@@ -130,6 +132,7 @@ def _run_movie_search_tool(tool_calls: Iterable[Any]) -> dict[str, Any] | None:
 
 
 def _movie_to_payload(movie: MovieData) -> dict[str, Any]:
+    """MovieData 객체를 LLM 툴 응답 payload 형태로 직렬화."""
     return {
         "title": movie.title,
         "release_date": movie.release_date.isoformat(),
@@ -146,6 +149,7 @@ def _movie_to_payload(movie: MovieData) -> dict[str, Any]:
 
 
 def _payload_to_movie(payload: dict[str, Any]) -> MovieData:
+    """툴 호출 결과 dict를 MovieData 도메인 객체로 역직렬화."""
     raw_release = payload.get("release_date")
     if isinstance(raw_release, date):
         release_date = raw_release
