@@ -21,6 +21,7 @@ class MovieData:
     source: str | None = None
     external_id: str | None = None
     is_re_release: bool = False
+    content_type: str = "movie"
 
     def cast_as_string(self) -> str | None:
         return ", ".join(self.cast) if self.cast else None

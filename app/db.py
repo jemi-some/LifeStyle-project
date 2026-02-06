@@ -89,6 +89,7 @@ class ProjectRepository:
         source: str | None,
         external_id: str | None,
         is_re_release: bool,
+        content_type: str,
     ) -> Project:
         project = Project(
             name=name,
@@ -103,6 +104,7 @@ class ProjectRepository:
             source=source,
             external_id=external_id,
             is_re_release=is_re_release,
+            content_type=content_type,
         )
         session.add(project)
         session.flush()  # assign IDs before leaving scope

@@ -1,4 +1,4 @@
-"""Thin wrapper around the TMDb API to fetch movie metadata."""
+"""Thin wrapper around the TMDb API to fetch movie/TV metadata."""
 
 from __future__ import annotations
 
@@ -126,12 +126,14 @@ class TMDbClient:
             is_re_release=release.is_re_release,
         )
 
-    def _select_candidate(self, results: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    def _select_candidate(
+        self, results: Iterable[dict[str, Any]], *, date_field: str = "release_date"
+    ) -> dict[str, Any]:
         today = date.today()
         future = []
         fallback = []
         for item in results:
-            rd = self._parse_date(item.get("release_date"))
+            rd = self._parse_date(item.get(date_field))
             if not rd:
                 continue
             if rd >= today:
@@ -146,6 +148,59 @@ class TMDbClient:
             return fallback[0][1]
         # If all records miss release dates, just return the first entry.
         return next(iter(results))
+
+    def search_tv(
+        self,
+        *,
+        title: str,
+        first_air_date_year: int | None = None,
+        language: str | None = None,
+        region: str | None = None,
+    ) -> MovieData:
+        """Search TMDb for TV series metadata."""
+
+        payload = self._request(
+            "GET",
+            "/search/tv",
+            params={
+                "query": title,
+                "include_adult": False,
+                "language": language or self.default_language,
+                "first_air_date_year": first_air_date_year,
+                "region": region or self.default_region,
+            },
+        )
+        results = payload.get("results", [])
+        logger.debug("TMDb TV search payload: %s", payload)
+        if not results:
+            raise TMDbNotFound(f"TMDb TV search returned no results for '{title}'")
+
+        candidate = self._select_candidate(results, date_field="first_air_date")
+        details = self._request(
+            "GET",
+            f"/tv/{candidate['id']}",
+            params={
+                "language": language or self.default_language,
+                "append_to_response": "credits",
+            },
+        )
+        logger.debug("TMDb TV details payload: %s", details)
+        release = self._parse_date(details.get("first_air_date"))
+        if not release:
+            release = date.today()
+        return MovieData(
+            title=details.get("name") or title,
+            release_date=release,
+            overview=details.get("overview"),
+            distributor=self._extract_network(details),
+            director=None,
+            cast=self._extract_cast(details.get("credits", {})),
+            genre=[g["name"] for g in details.get("genres", [])],
+            poster_url=self._build_poster_url(details.get("poster_path") or candidate.get("poster_path")),
+            source="tmdb_tv",
+            external_id=str(details.get("id")),
+            is_re_release=False,
+        )
 
     def _select_release(
         self,
@@ -201,6 +256,13 @@ class TMDbClient:
             if member.get("job") == "Director" and member.get("name"):
                 return member["name"]
         return None
+
+    @staticmethod
+    def _extract_network(details: dict[str, Any]) -> str | None:
+        networks = details.get("networks") or []
+        if not networks:
+            return None
+        return ", ".join(net["name"] for net in networks)
 
     @staticmethod
     def _extract_cast(credits: dict[str, Any], *, limit: int = 5) -> list[str] | None:

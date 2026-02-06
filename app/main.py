@@ -47,6 +47,7 @@ class DDayResponse(BaseModel):
     director: str | None = None
     cast: list[str] | None = None
     genre: list[str] | None = None
+    content_type: str = "movie"
 
 
 class LongestDDayResponse(BaseModel):
@@ -190,7 +191,7 @@ async def stream_chat(
                             "tool_started",
                             {"message": event.get("message", "TMDB에서 개봉 정보를 찾는 중...")},
                         )
-                    elif etype == "movie":
+                    elif etype in {"movie", "tv"}:
                         movie = event["movie"]
                         yield _sse_event(
                             "tool_result",
@@ -198,6 +199,7 @@ async def stream_chat(
                                 "message": event.get("message", f"{movie.title} 정보를 찾았어요."),
                                 "title": movie.title,
                                 "release_date": movie.release_date.isoformat(),
+                                "content_type": getattr(movie, "content_type", "movie"),
                             },
                         )
                         existing_by_source = repo.get_by_source_and_external_id(
@@ -267,6 +269,7 @@ def _project_to_response(project: Project, *, message: str | None = None) -> DDa
         director=project.director,
         cast=_split_list_field(project.cast),
         genre=_split_list_field(project.genre),
+        content_type=getattr(project, "content_type", "movie"),
     )
 
 

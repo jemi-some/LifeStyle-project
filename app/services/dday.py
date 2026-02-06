@@ -45,6 +45,7 @@ def build_project_params(
         "source": movie.source,
         "external_id": movie.external_id,
         "is_re_release": movie.is_re_release,
+        "content_type": movie.content_type,
     }
 
 
@@ -62,7 +63,7 @@ def orchestrate_movie_lookup(user_query: str) -> MovieData:
         model=settings.openai_model,
         api_key=settings.openai_api_key,
     )
-    llm_with_tools = llm.bind_tools([_MOVIE_SEARCH_TOOL])
+    llm_with_tools = llm.bind_tools([_MOVIE_SEARCH_TOOL, _TV_SEARCH_TOOL])
 
     try:
         ai_message = llm_with_tools.invoke(
@@ -75,7 +76,7 @@ def orchestrate_movie_lookup(user_query: str) -> MovieData:
         logger.warning("LangChain/OpenAI call failed, fallback to TMDb direct: %s", exc)
         return tmdb_client.search_movie(title=user_query)
 
-    payload = _run_movie_search_tool(ai_message.tool_calls)
+    payload = _run_tool(ai_message.tool_calls)
     if payload:
         return _payload_to_movie(payload)
 
@@ -85,10 +86,11 @@ def orchestrate_movie_lookup(user_query: str) -> MovieData:
 
 logger = logging.getLogger(__name__)
 _SYSTEM_PROMPT = (
-    "You help users coordinate shared movie release D-Days. "
-    "Always normalize the movie title (fix missing spaces like '28년후' -> '28년 후',"
-    " correct casing, prefer official Korean titles) before calling the movie_search"
-    " tool, and always call that tool before answering."
+    "You help users coordinate shared movie/TV release D-Days. "
+    "Always normalize the title (fix missing spaces like '28년후' -> '28년 후',"
+    " correct casing, prefer official Korean titles) before calling a tool."
+    " If the request is about a film, call movie_search; if it's TV/드라마/시리즈,"
+    " call tv_search. Always call one of these tools before answering."
 )
 
 
@@ -117,21 +119,46 @@ _MOVIE_SEARCH_TOOL = StructuredTool.from_function(
 )
 
 
-def _run_movie_search_tool(tool_calls: Iterable[Any]) -> dict[str, Any] | None:
-    """LLM 응답의 tool_calls 중 movie_search 호출을 찾아 실행."""
+def _tv_search_tool_func(
+    title: str,
+    first_air_date_year: int | None = None,
+    country: str | None = None,
+    language: str | None = None,
+) -> dict[str, Any]:
+    settings = get_settings()
+    tmdb_client = TMDbClient()
+    series = tmdb_client.search_tv(
+        title=title,
+        first_air_date_year=first_air_date_year,
+        region=country or settings.tmdb_region,
+        language=language or settings.tmdb_language,
+    )
+    return _movie_to_payload(series, content_type="tv")
+
+
+_TV_SEARCH_TOOL = StructuredTool.from_function(
+    func=_tv_search_tool_func,
+    name="tv_search",
+    description="Search TMDb for TV series metadata.",
+)
+
+
+def _run_tool(tool_calls: Iterable[Any]) -> dict[str, Any] | None:
+    """LLM 응답의 tool_calls에서 지원하는 툴을 찾아 실행."""
     if not tool_calls:
         return None
     for call in tool_calls:
         name = getattr(call, "name", None) or call.get("name")
-        if name != "movie_search":
+        if name not in {"movie_search", "tv_search"}:
             continue
         args = getattr(call, "args", None) or call.get("args") or {}
-        logger.debug("movie_search tool args via LangChain: %s", args)
-        return _MOVIE_SEARCH_TOOL.invoke(args)
+        logger.debug("LangChain tool args via LLM: %s", args)
+        tool = _MOVIE_SEARCH_TOOL if name == "movie_search" else _TV_SEARCH_TOOL
+        return tool.invoke(args)
     return None
 
 
-def _movie_to_payload(movie: MovieData) -> dict[str, Any]:
+def _movie_to_payload(movie: MovieData, *, content_type: str | None = None) -> dict[str, Any]:
     """MovieData 객체를 LLM 툴 응답 payload 형태로 직렬화."""
     return {
         "title": movie.title,
@@ -145,6 +172,7 @@ def _movie_to_payload(movie: MovieData) -> dict[str, Any]:
         "source": movie.source,
         "external_id": movie.external_id,
         "is_re_release": movie.is_re_release,
+        "content_type": content_type or ("tv" if movie.source == "tmdb_tv" else "movie"),
     }
 
 

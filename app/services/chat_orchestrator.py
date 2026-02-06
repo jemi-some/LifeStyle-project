@@ -94,10 +94,10 @@ async def run_chat_orchestrator_events(
     if tool_call:
         spec, args = tool_call
         payload = spec.tool.invoke(args)
-        if spec.result_type == "movie":
+        if spec.result_type in {"movie", "tv"}:
             movie = _payload_to_movie(payload)
             yield {
-                "type": "movie",
+                "type": spec.result_type,
                 "movie": movie,
                 "message": f"{movie.title} 정보를 찾았어요.",
             }
@@ -153,6 +153,7 @@ def _payload_to_movie(payload: dict[str, Any]) -> MovieData:
         source=payload.get("source"),
         external_id=payload.get("external_id"),
         is_re_release=bool(payload.get("is_re_release", False)),
+        content_type=payload.get("content_type", "movie"),
     )
 
 def _extract_text(message: Any) -> str:
