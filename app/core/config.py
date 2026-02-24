@@ -22,11 +22,9 @@ class Settings(BaseSettings):
     database_url: str = Field(default="sqlite:///./dday.db", alias="DATABASE_URL")
     supabase_url: str | None = Field(default=None, alias="VITE_SUPABASE_URL")
     supabase_anon_key: str | None = Field(default=None, alias="VITE_SUPABASE_ANON_KEY")
-    supabase_jwt_secret: str | None = Field(default=None, alias="SUPABASE_JWT_SECRET")
-
-
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
 
 
 @lru_cache(maxsize=1)
