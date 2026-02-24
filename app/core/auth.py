@@ -28,14 +28,40 @@ def get_current_user(
         return {"sub": "developer-user-123", "email": "dev@example.com"}
 
     try:
-        # Supabase uses HS256 algorithm by default
-        payload = jwt.decode(
-            credentials.credentials,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
+        header = jwt.get_unverified_header(credentials.credentials)
+        alg = header.get("alg")
+
+        if alg == "HS256":
+            # Traditional symmetric encryption (Legacy Secret)
+            payload = jwt.decode(
+                credentials.credentials,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256"],
+                options={"verify_aud": False}
+            )
+        elif alg in ["RS256", "ES256"] and settings.supabase_url:
+            # Modern asymmetric encryption (Signing Keys via JWKS)
+            jwks_url = f"{settings.supabase_url.rstrip('/')}/auth/v1/jwks"
+            jwks_client = jwt.PyJWKClient(jwks_url)
+            signing_key = jwks_client.get_signing_key_from_jwt(credentials.credentials)
+            
+            payload = jwt.decode(
+                credentials.credentials,
+                signing_key.key,
+                algorithms=["RS256", "ES256"],
+                options={"verify_aud": False}
+            )
+        else:
+            # Fallback/Error if algorithm is unsupported or URL missing
+            payload = jwt.decode(
+                credentials.credentials,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256", "RS256", "ES256"],
+                options={"verify_aud": False}
+            )
+            
         return payload
+
     except jwt.ExpiredSignatureError as exc:
         logger.warning(f"JWT validation failed: Token expired. Detail: {exc}")
         raise HTTPException(
@@ -43,8 +69,8 @@ def get_current_user(
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
-    except jwt.InvalidTokenError as exc:
-        # Debug: check the header to see what algorithm is actually being used
+    except Exception as exc:
+        # Debug: check the header for all other errors
         try:
             header = jwt.get_unverified_header(credentials.credentials)
             logger.warning(f"JWT Header: {header}")
@@ -58,5 +84,6 @@ def get_current_user(
             detail=f"Invalid authentication credentials: {reason}",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+
 
 
