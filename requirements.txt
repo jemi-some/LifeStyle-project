@@ -10,4 +10,6 @@ langchain
 langchain-openai
 pyyaml
 psycopg2-binary
-PyJWT
+PyJWT[crypto]
+cryptography
+ecdsa

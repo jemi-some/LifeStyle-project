@@ -13,7 +13,14 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+try:
+    import cryptography
+    logger.info("Cryptography library is available")
+except ImportError:
+    logger.warning("Cryptography library NOT found. Asymmetric JWT (ES256/RS256) will fail.")
+
 security = HTTPBearer()
+
 
 
 def get_current_user(
