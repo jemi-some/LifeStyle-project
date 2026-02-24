@@ -44,10 +44,19 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
     except jwt.InvalidTokenError as exc:
-        logger.warning(f"JWT validation failed: Invalid token. Reason: {exc}")
+        # Debug: check the header to see what algorithm is actually being used
+        try:
+            header = jwt.get_unverified_header(credentials.credentials)
+            logger.warning(f"JWT Header: {header}")
+            reason = f"{exc} (Header: {header})"
+        except Exception:
+            reason = str(exc)
+            
+        logger.warning(f"JWT validation failed: Invalid token. Reason: {reason}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid authentication credentials: {exc}",
+            detail=f"Invalid authentication credentials: {reason}",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+
 
