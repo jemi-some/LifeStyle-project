@@ -15,15 +15,15 @@
     ],
     "rewrites": [
         {
-            "source": "/api/(.*)",
+            "source": "/api(.*)",
             "destination": "api/index.py"
         },
         {
-            "source": "/dday/(.*)",
+            "source": "/dday(.*)",
             "destination": "api/index.py"
         },
         {
-            "source": "/chat/(.*)",
+            "source": "/chat(.*)",
             "destination": "api/index.py"
         },
         {
