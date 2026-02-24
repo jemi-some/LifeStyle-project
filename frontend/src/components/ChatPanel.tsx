@@ -14,17 +14,18 @@ type Props = {
 }
 
 export function ChatPanel({ query, setQuery, isLoading, error, onSubmit, history, stageGroups, onConfirm, onCancel }: Props) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const historyContainerRef = useRef<HTMLDivElement | null>(null)
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     await onSubmit()
     inputRef.current?.focus()
   }
 
-  const historyContainerRef = useRef<HTMLDivElement | null>(null)
-  const inputRef = useRef<HTMLInputElement | null>(null)
-
   useEffect(() => {
     const container = historyContainerRef.current
+
     if (!container) return
     container.scrollTop = container.scrollHeight
   }, [history, stageGroups])
@@ -35,7 +36,8 @@ export function ChatPanel({ query, setQuery, isLoading, error, onSubmit, history
     }
   }, [isLoading])
 
-  const conversationNodes: JSX.Element[] = []
+  const conversationNodes: React.ReactNode[] = []
+
 
   history.forEach((entry) => {
     conversationNodes.push(
@@ -102,9 +104,11 @@ export function ChatPanel({ query, setQuery, isLoading, error, onSubmit, history
               <img src={sendIcon} alt="send" />
             </button>
           </div>
+          {error && <p className="error-text">{error}</p>}
           <p className="chat-disclaimer">AI는 실수를 할 수 있습니다. 중요한 정보는 재차 확인하세요.</p>
         </div>
       </form>
     </div>
   )
 }
+
