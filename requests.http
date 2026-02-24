@@ -1,0 +1,11 @@
+### D-Day
+POST http://localhost:8000/dday
+Content-Type: application/json
+
+{"query": "프로젝트 헤일메리"}
+
+### Chat fallback
+POST http://localhost:8000/chat
+Content-Type: application/json
+
+{"query": "안녕"}
