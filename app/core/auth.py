@@ -37,16 +37,17 @@ def get_current_user(
         )
         return payload
     except jwt.ExpiredSignatureError as exc:
-        logger.warning("JWT validation failed: Token expired")
+        logger.warning(f"JWT validation failed: Token expired. Detail: {exc}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
     except jwt.InvalidTokenError as exc:
-        logger.warning("JWT validation failed: Invalid token")
+        logger.warning(f"JWT validation failed: Invalid token. Reason: {exc}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
+            detail=f"Invalid authentication credentials: {exc}",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+
