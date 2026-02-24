@@ -17,10 +17,9 @@ dependencies = [
   "langchain-openai",
   "pyyaml",
   "psycopg2-binary",
-  "PyJWT[crypto]",
-  "cryptography",
-  "ecdsa",
+  "PyJWT",
 ]
+
 
 
 [tool.black]
