@@ -66,7 +66,10 @@ def get_current_user(
             # Modern asymmetric encryption (Signing Keys via JWKS)
             jwks_url = f"{settings.supabase_url.rstrip('/')}/auth/v1/jwks"
             logger.info(f"Fetching JWKS from {jwks_url}")
-            jwks_client = jwt.PyJWKClient(jwks_url)
+            
+            # Subapase often requires the anon key (apikey) even for JWKS
+            headers = {"apikey": settings.supabase_anon_key} if settings.supabase_anon_key else {}
+            jwks_client = jwt.PyJWKClient(jwks_url, headers=headers)
             signing_key = jwks_client.get_signing_key_from_jwt(credentials.credentials)
             
             payload = jwt.decode(
@@ -75,6 +78,7 @@ def get_current_user(
                 algorithms=["RS256", "ES256"],
                 options={"verify_aud": False}
             )
+
         else:
             # Fallback for HS256
             payload = jwt.decode(

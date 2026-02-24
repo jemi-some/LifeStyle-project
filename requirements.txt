@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+pydantic-settings
+alembic
+httpx
+openai
+langchain
+langchain-openai
+pyyaml
+psycopg2-binary
+PyJWT[crypto]==2.8.0
+cryptography==42.0.5
+ecdsa==0.18.0
