@@ -29,3 +29,7 @@ ignore = ["E501"]
 
 [tool.ruff.isort]
 combine-as-imports = true
+
+[tool.setuptools]
+packages = ["app"]
+

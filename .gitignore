@@ -34,3 +34,7 @@ Thumbs.db
 # code assistant
 AGENTS.md
 PLANS.md
+
+# Python distribution
+*.egg-info/
+dday_backend.egg-info/
