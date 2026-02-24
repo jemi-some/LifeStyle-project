@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from typing import Mapping, Any
 
 import jwt
@@ -13,13 +14,21 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+logger.info(f"Python version: {sys.version}")
+logger.info(f"sys.path: {sys.path}")
+
 try:
-    import cryptography
-    logger.info("Cryptography library is available")
-except ImportError:
-    logger.warning("Cryptography library NOT found. Asymmetric JWT (ES256/RS256) will fail.")
+    from cryptography.hazmat.primitives import hashes
+    logger.info("Cryptography (hazmat) is successfully available")
+except ImportError as e:
+    logger.error(f"Cryptography NOT found: {e}")
+    # Try to see what IS in site-packages
+    import pkg_resources
+    installed_packages = [d.project_name for d in pkg_resources.working_set]
+    logger.info(f"Installed packages: {installed_packages}")
 
 security = HTTPBearer()
+
 
 
 
@@ -46,9 +55,17 @@ def get_current_user(
                 algorithms=["HS256"],
                 options={"verify_aud": False}
             )
-        elif alg in ["RS256", "ES256"] and settings.supabase_url:
+        elif alg in ["RS256", "ES256"]:
+            if not settings.supabase_url:
+                logger.error("SUPABASE_URL is missing in environment variables. Cannot fetch JWKS for ES256.")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Server configuration error: SUPABASE_URL missing for asymmetric JWT"
+                )
+            
             # Modern asymmetric encryption (Signing Keys via JWKS)
             jwks_url = f"{settings.supabase_url.rstrip('/')}/auth/v1/jwks"
+            logger.info(f"Fetching JWKS from {jwks_url}")
             jwks_client = jwt.PyJWKClient(jwks_url)
             signing_key = jwks_client.get_signing_key_from_jwt(credentials.credentials)
             
@@ -59,13 +76,14 @@ def get_current_user(
                 options={"verify_aud": False}
             )
         else:
-            # Fallback/Error if algorithm is unsupported or URL missing
+            # Fallback for HS256
             payload = jwt.decode(
                 credentials.credentials,
                 settings.supabase_jwt_secret,
-                algorithms=["HS256", "RS256", "ES256"],
+                algorithms=["HS256"],
                 options={"verify_aud": False}
             )
+
             
         return payload
 

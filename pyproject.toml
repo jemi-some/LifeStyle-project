@@ -17,8 +17,11 @@ dependencies = [
   "langchain-openai",
   "pyyaml",
   "psycopg2-binary",
-  "PyJWT",
+  "PyJWT[crypto]",
+  "cryptography",
+  "ecdsa",
 ]
+
 
 [tool.black]
 line-length = 88
