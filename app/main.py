@@ -359,7 +359,7 @@ def _dday_to_response(
         name=user_dday.query_name,
         movie_title=movie.title,
         release_date=movie.release_date,
-        dday=user_dday.dday_label,
+        dday=_compute_dday(movie.release_date),
         waiting_count=waiting_count,
         message=message,
         poster_url=movie.poster_url,
