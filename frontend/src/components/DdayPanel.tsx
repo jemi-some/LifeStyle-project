@@ -122,7 +122,7 @@ export function DdayPanel({ result, isLoading }: Props) {
           )}
           {result.distributor && (
             <p>
-              <span>배급</span>
+              <span>{result.content_type === 'tv' ? 'OTT/방송' : '배급'}</span>
               {result.distributor}
             </p>
           )}

@@ -1,5 +1,25 @@
 import type { DdayResult } from '../hooks/use-dday'
 
+const OTT_COLORS: Record<string, { bg: string; color: string }> = {
+  Netflix: { bg: '#e50914', color: '#fff' },
+  'Disney+': { bg: '#113ccf', color: '#fff' },
+  'Disney Plus': { bg: '#113ccf', color: '#fff' },
+  'Apple TV+': { bg: '#1c1c1e', color: '#fff' },
+  Wavve: { bg: '#0056ff', color: '#fff' },
+  TVING: { bg: '#ff153c', color: '#fff' },
+  Tving: { bg: '#ff153c', color: '#fff' },
+  'Coupang Play': { bg: '#c0ea00', color: '#111' },
+  'Amazon Prime Video': { bg: '#00a8e0', color: '#fff' },
+  'Prime Video': { bg: '#00a8e0', color: '#fff' },
+}
+
+function getOttStyle(distributor: string): { background: string; color: string } | undefined {
+  const match = Object.keys(OTT_COLORS).find((key) =>
+    distributor.toLowerCase().includes(key.toLowerCase()),
+  )
+  return match ? { background: OTT_COLORS[match].bg, color: OTT_COLORS[match].color } : undefined
+}
+
 type Props = {
   item: DdayResult
   onReact?: (item: DdayResult) => void
@@ -16,6 +36,9 @@ export function SharedDdayCard({ item, onReact }: Props) {
       >
         <div className="overlay">
           <div className="content-type">{typeBadge}</div>
+          {item.content_type === 'tv' && item.distributor && (
+            <p className="shared-ott" style={getOttStyle(item.distributor)}>{item.distributor}</p>
+          )}
           <div className="shared-dday">{item.dday}</div>
           <p className="shared-title">{item.movie_title}</p>
           <p className="shared-meta">{item.release_date}</p>
