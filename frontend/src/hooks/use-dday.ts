@@ -110,8 +110,8 @@ export function useDday() {
     }))
   }, [])
 
-  const handleSubmit = useCallback(async () => {
-    const normalized = query.trim()
+  const handleSubmit = useCallback(async (directQuery?: string) => {
+    const normalized = (directQuery ?? query).trim()
     if (!normalized) return
 
     setQuery('')

@@ -1,12 +1,19 @@
 import { type FormEvent, useEffect, useRef } from 'react'
 import sendIcon from '../assets/send.svg'
 
+const STARTER_QUESTIONS = [
+  '어벤져스: 둠스데이 개봉일',
+  '아바타 개봉일',
+  '해리 포터 드라마 개봉일',
+  '웬즈데이 개봉일',
+]
+
 type Props = {
   query: string
   setQuery: (value: string) => void
   isLoading: boolean
   error: string | null
-  onSubmit: () => Promise<void>
+  onSubmit: (directQuery?: string) => Promise<void>
   history: { id: string; author: 'user' | 'assistant'; message: string; pendingConfirmation?: Record<string, unknown> }[]
   stageGroups: Record<string, { id: string; message: string; kind: 'analysis' | 'tool_started' | 'tool_result' }[]>
   onConfirm: (messageId: string, payload: Record<string, unknown>) => void
@@ -86,6 +93,24 @@ export function ChatPanel({ query, setQuery, isLoading, error, onSubmit, history
   return (
     <div className="chat-panel-inner">
       <div className="chat-history" ref={historyContainerRef}>
+        {history.length === 0 && (
+          <div className="starter-questions">
+            <p className="starter-label">이런 걸 물어볼 수 있어요</p>
+            <div className="starter-grid">
+              {STARTER_QUESTIONS.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  className="starter-card"
+                  onClick={() => onSubmit(q)}
+                  disabled={isLoading}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {conversationNodes}
       </div>
 

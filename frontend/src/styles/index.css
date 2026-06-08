@@ -463,6 +463,50 @@ html {
   padding-right: 4px;
 }
 
+.starter-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: auto 0;
+  padding: 8px 0;
+}
+
+.starter-label {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.starter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.starter-card {
+  background: var(--surface);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.875rem;
+  color: #475569;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  line-height: 1.4;
+}
+
+.starter-card:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.starter-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .bubble {
   max-width: 75%;
   padding: 10px 16px;
