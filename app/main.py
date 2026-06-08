@@ -286,6 +286,7 @@ async def stream_chat(
                             "title": movie.title,
                             "release_date": movie.release_date.isoformat(),
                             "content_type": getattr(movie, "content_type", "movie"),
+                            "tool": "tv_search" if etype == "tv" else "movie_search",
                         },
                     )
                     

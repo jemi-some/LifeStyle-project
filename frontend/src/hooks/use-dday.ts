@@ -229,11 +229,17 @@ export function useDday() {
           switch (event) {
             case 'analysis':
             case 'tool_started':
-            case 'tool_result':
               if (typeof payload.message === 'string') {
                 appendStage(event, payload.message)
               }
               break
+            case 'tool_result': {
+              if (typeof payload.message === 'string') {
+                const toolLabel = payload.tool === 'tv_search' ? '📺 tv_search' : '🎬 movie_search'
+                appendStage(event, `${toolLabel} · ${payload.message}`)
+              }
+              break
+            }
             case 'token':
               if (typeof payload.message === 'string') {
                 upsertAssistantMessage(payload.message)
