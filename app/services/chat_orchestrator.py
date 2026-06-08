@@ -153,6 +153,7 @@ def _payload_to_movie(payload: dict[str, Any]) -> MovieData:
         source=payload.get("source"),
         external_id=payload.get("external_id"),
         is_re_release=bool(payload.get("is_re_release", False)),
+        is_upcoming=bool(payload.get("is_upcoming", True)),
         content_type=payload.get("content_type", "movie"),
     )
 
@@ -173,4 +174,6 @@ def _format_movie_sentence(movie: MovieData) -> str:
     dday_label = calculate_dday_label(movie.release_date)
     is_tv = movie.content_type == "tv" or movie.source == "tmdb_tv"
     term = "방영" if is_tv else "개봉"
-    return f"'{movie.title}'은(는) {movie.release_date.isoformat()} {term} 예정이라 {dday_label}입니다."
+    if movie.is_upcoming:
+        return f"'{movie.title}'은(는) {movie.release_date.isoformat()} {term} 예정이라 {dday_label}입니다."
+    return f"'{movie.title}'은(는) {movie.release_date.isoformat()}에 {term}했습니다. ({dday_label})"

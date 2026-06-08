@@ -155,8 +155,9 @@ def upsert_dday(
         query_name=normalized_name,
         dday_label=_compute_dday(existing_movie.release_date),
     )
+    success_message = "새로운 D-Day를 기록했습니다." if movie_data.is_upcoming else "이미 개봉한 작품입니다."
     return _dday_to_response(
-        session, existing_movie, user_dday, message="새로운 D-Day를 기록했습니다."
+        session, existing_movie, user_dday, message=success_message
     )
 
 

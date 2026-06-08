@@ -21,6 +21,7 @@ class MovieData:
     source: str | None = None
     external_id: str | None = None
     is_re_release: bool = False
+    is_upcoming: bool = True
     content_type: str = "movie"
 
     def cast_as_string(self) -> str | None:

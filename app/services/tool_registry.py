@@ -37,6 +37,7 @@ def _movie_search_tool(
         "source": movie.source,
         "external_id": movie.external_id,
         "is_re_release": movie.is_re_release,
+        "is_upcoming": movie.is_upcoming,
         "content_type": "movie",
     }
 
@@ -67,6 +68,7 @@ def _tv_search_tool(
         "source": series.source,
         "external_id": series.external_id,
         "is_re_release": series.is_re_release,
+        "is_upcoming": series.is_upcoming,
         "content_type": "tv",
     }
 

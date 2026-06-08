@@ -33,6 +33,7 @@ class TMDbNoUpcomingRelease(TMDbError):
 class TMDbReleaseInfo:
     date: date
     is_re_release: bool = False
+    is_upcoming: bool = True
 
 
 class TMDbClient:
@@ -93,6 +94,7 @@ class TMDbClient:
         )
         results = payload.get("results", [])
         logger.debug("TMDb search payload: %s", payload)
+        print("[TMDb] search results:", payload)
         if not results:
             raise TMDbNotFound(f"TMDb search returned no results for '{title}'")
 
@@ -107,6 +109,7 @@ class TMDbClient:
             },
         )
         logger.debug("TMDb details payload: %s", details)
+        print("[TMDb] details:", details)
         release = self._select_release(details.get("release_dates", {}), region)
         if release is None:
             raise TMDbNoUpcomingRelease(
@@ -124,6 +127,7 @@ class TMDbClient:
             source="tmdb",
             external_id=str(details.get("id")),
             is_re_release=release.is_re_release,
+            is_upcoming=release.is_upcoming,
         )
 
     def _select_candidate(
@@ -172,6 +176,7 @@ class TMDbClient:
         )
         results = payload.get("results", [])
         logger.debug("TMDb TV search payload: %s", payload)
+        print("[TMDb TV] search results:", payload)
         if not results:
             raise TMDbNotFound(f"TMDb TV search returned no results for '{title}'")
 
@@ -189,6 +194,7 @@ class TMDbClient:
                     "append_to_response": "credits",
                 },
             )
+            print(f"[TMDb TV] details ({item.get('name')}):", item_details)
             next_episode = item_details.get("next_episode_to_air")
             if next_episode and next_episode.get("air_date"):
                 parsed = self._parse_date(next_episode.get("air_date"))
@@ -198,7 +204,34 @@ class TMDbClient:
                     break
 
         if not candidate:
-            raise TMDbNoUpcomingRelease("No upcoming episodes available for this TV series")
+            # Fallback: return the most recently aired show
+            fallback_item = self._select_candidate(results, date_field="first_air_date")
+            fallback_details = self._request(
+                "GET",
+                f"/tv/{fallback_item['id']}",
+                params={
+                    "language": language or self.default_language,
+                    "append_to_response": "credits",
+                },
+            )
+            release_raw = fallback_details.get("last_air_date") or fallback_details.get("first_air_date")
+            release = self._parse_date(release_raw) or date.today()
+            return MovieData(
+                title=fallback_details.get("name") or title,
+                release_date=release,
+                overview=fallback_details.get("overview"),
+                distributor=self._extract_network(fallback_details),
+                director=None,
+                cast=self._extract_cast(fallback_details.get("credits", {})),
+                genre=[g["name"] for g in fallback_details.get("genres", [])],
+                poster_url=self._build_poster_url(
+                    fallback_details.get("poster_path") or fallback_item.get("poster_path")
+                ),
+                source="tmdb_tv",
+                external_id=str(fallback_details.get("id")),
+                is_re_release=False,
+                is_upcoming=False,
+            )
 
         logger.debug("TMDb TV details payload: %s", details)
         
@@ -227,6 +260,9 @@ class TMDbClient:
             is_re_release=False,
         )
 
+    # type 2: Limited Theatrical, type 3: Theatrical
+    _THEATRICAL_TYPES: frozenset[int] = frozenset({2, 3})
+
     def _select_release(
         self,
         release_dates_payload: dict[str, Any],
@@ -235,27 +271,38 @@ class TMDbClient:
         region_code = region or self.default_region
         today = date.today()
         preferred_future: list[TMDbReleaseInfo] = []
-        preferred_re_release: list[TMDbReleaseInfo] = []
         fallback_future: list[TMDbReleaseInfo] = []
-        fallback_re_release: list[TMDbReleaseInfo] = []
+        preferred_past: list[TMDbReleaseInfo] = []
+        fallback_past: list[TMDbReleaseInfo] = []
         for entry in release_dates_payload.get("results", []):
             is_preferred = not region_code or entry.get("iso_3166_1") == region_code
             for info in entry.get("release_dates", []):
+                if info.get("type") not in self._THEATRICAL_TYPES:
+                    continue
                 parsed = self._parse_date(info.get("release_date"))
                 if not parsed:
                     continue
-                is_re = info.get("type") == 5  # 5 => re-release per TMDb docs
-                buckets = (
-                    (preferred_re_release if is_re else preferred_future)
-                    if is_preferred
-                    else (fallback_re_release if is_re else fallback_future)
-                )
                 if parsed >= today:
-                    buckets.append(TMDbReleaseInfo(parsed, is_re))
-        for collection in (preferred_future, preferred_re_release, fallback_future, fallback_re_release):
-            if collection:
-                collection.sort(key=lambda r: r.date)
-                return collection[0]
+                    (preferred_future if is_preferred else fallback_future).append(
+                        TMDbReleaseInfo(parsed)
+                    )
+                else:
+                    (preferred_past if is_preferred else fallback_past).append(
+                        TMDbReleaseInfo(parsed, is_upcoming=False)
+                    )
+        if preferred_future:
+            preferred_future.sort(key=lambda r: r.date)
+            return preferred_future[0]
+        if preferred_past:
+            preferred_past.sort(key=lambda r: r.date, reverse=True)
+            return preferred_past[0]
+        if fallback_future:
+            fallback_future.sort(key=lambda r: r.date)
+            return fallback_future[0]
+        # Fallback: most recent past theatrical release from any region
+        if fallback_past:
+            fallback_past.sort(key=lambda r: r.date, reverse=True)
+            return fallback_past[0]
         return None
 
     @staticmethod
